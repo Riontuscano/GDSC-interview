@@ -1,0 +1,18 @@
+{
+  "name": "gdsc-interview",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "scripts": {
+    "client": "cd client && bun run dev",
+    "server": "cd backend && nodemon server.js"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@splinetool/react-spline": "^4.0.0"
+  }
+}
