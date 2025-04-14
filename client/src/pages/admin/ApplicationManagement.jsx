@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 const ApplicationManagement = () => {
   const { eventId } = useParams();
   const { darkMode } = useTheme();
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   const navigate = useNavigate();
   
   const [event, setEvent] = useState(null);
@@ -21,31 +21,54 @@ const ApplicationManagement = () => {
     fetchEvent();
   }, [eventId, navigate]);
   
+  // Log application state changes
+  useEffect(() => {
+    if (applications.length > 0) {
+      console.log('Applications in state:', applications.map(app => ({
+        id: app._id?.toString() || 'Missing ID',
+        name: app.userData?.firstName || (app.user?.firstName || 'Unknown'),
+        status: app.status
+      })));
+    }
+  }, [applications]);
+  
   const fetchEvent = async () => {
     try {
       setLoading(true);
       
-      console.log('Fetching event data for ID:', eventId);
+      console.log(`Fetching event details for event ID: ${eventId}`);
       const response = await axios.get(`http://localhost:5500/api/events/${eventId}`);
       
       setEvent(response.data.data);
       
-      // Log the fetched data for debugging
-      console.log('Event data received:', response.data.data);
-      console.log('Applicants:', response.data.data.applicants);
+      // Log the applicants to check the structure
+      if (response.data.data.applicants) {
+        console.log(`Found ${response.data.data.applicants.length} applicants:`, 
+          response.data.data.applicants.map(app => ({
+            id: app._id,
+            name: app.userData?.firstName ? `${app.userData.firstName} ${app.userData.lastName}` : 'Unknown Name',
+            email: app.userData?.email || 'Unknown Email',
+            status: app.status
+          }))
+        );
+      }
       
-      // Extract and format applications
+      // Extract and format applications with reliable IDs
       const apps = response.data.data.applicants.map((app, index) => {
-        console.log(`Processing application ${index}:`, app);
+        const uniqueId = app._id || `app-${index}-${Date.now()}`;
+        
+        // Create a reliable application object with all potential data sources
         return {
           ...app,
-          _id: app._id || `app-${index}-${Date.now()}`, // Ensure every application has an _id
-          user: app.user,
+          _id: uniqueId,
+          userData: app.userData || {
+            firstName: app.user?.firstName || 'Guest',
+            lastName: app.user?.lastName || 'User',
+            email: app.user?.email || 'guest@example.com'
+          },
           appliedAt: new Date(app.appliedAt),
         };
       });
-      
-      console.log('Formatted applications:', apps);
       
       setApplications(apps);
       setError(null);
@@ -59,28 +82,32 @@ const ApplicationManagement = () => {
   
   const updateApplicationStatus = async (newStatus, applicationId) => {
     try {
-      // Use applicationId for tracking processing state
       setProcessingId(applicationId);
       
-      console.log(`Updating application status for application ID ${applicationId} to ${newStatus}`);
-      console.log('Application ID for processing:', applicationId);
+      console.log(`Updating application ${applicationId} to status: ${newStatus}`);
+      
+      // Make sure we're using the string representation of the ID if it's an ObjectId
+      const appId = typeof applicationId === 'object' ? applicationId.toString() : applicationId;
       
       await axios.put(
-        `http://localhost:5500/api/events/${eventId}/applications/${applicationId}`,
+        `http://localhost:5500/api/events/${eventId}/applications/${appId}`,
         { status: newStatus }
       );
       
-      // Update local state to reflect the change
-      setApplications(
-        applications.map(app => 
-          app._id === applicationId
-            ? { ...app, status: newStatus } 
-            : app
-        )
+      // Update locally first for immediate feedback
+      setApplications(prevApps => 
+        prevApps.map(app => {
+          const appIdStr = app._id.toString ? app._id.toString() : app._id;
+          if (appIdStr === appId) {
+            console.log(`Locally updating application with ID ${appId} to ${newStatus}`);
+            return { ...app, status: newStatus };
+          }
+          return app;
+        })
       );
       
-      // Refresh data to ensure we have the latest
-      await fetchEvent();
+      // Then refresh data from server
+      setTimeout(() => fetchEvent(), 1000);
       
     } catch (err) {
       console.error('Error updating application status:', err);
@@ -247,24 +274,19 @@ const ApplicationManagement = () => {
                           <div className="text-sm font-bold">
                             {application.userData?.firstName ? 
                               `${application.userData.firstName} ${application.userData.lastName || ''}` :
-                              application.user && application.user.firstName ? 
+                              application.user && typeof application.user !== 'string' && application.user.firstName ? 
                                 `${application.user.firstName} ${application.user.lastName || ''}` : 
                                 'Guest User'}
                           </div>
                           <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                             {application.userData?.email ? 
                               application.userData.email :
-                              application.user && application.user.email ? 
+                              application.user && typeof application.user !== 'string' && application.user.email ? 
                                 application.user.email : 
                                 'guest@example.com'}
                           </div>
-                          <div className="text-xs mt-1 text-gray-500">
-                            App ID: {application._id?.substring(0, 8) || 'Unknown'} | 
-                            User ID: {application.user ? 
-                              (typeof application.user === 'string' ? 
-                                application.user.substring(0, 8) : 
-                                application.user._id?.substring(0, 8)) : 
-                              'Unknown'}
+                          <div className={`text-xs mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
+                            ID: {application._id ? application._id.toString().substring(0, 8) : '—'}
                           </div>
                         </div>
                       </div>
@@ -327,18 +349,6 @@ const ApplicationManagement = () => {
                           Reset
                         </button>
                       )}
-                      
-                      <button
-                        onClick={() => console.log('Application data:', application)}
-                        className={`inline-flex items-center px-1 py-1 text-xs rounded ${
-                          darkMode ? 'text-gray-400 hover:text-gray-300 hover:bg-slate-700' : 'text-gray-600 hover:text-gray-500 hover:bg-gray-200'
-                        }`}
-                        title="Debug: Log application data"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </button>
                     </td>
                   </tr>
                 ))}

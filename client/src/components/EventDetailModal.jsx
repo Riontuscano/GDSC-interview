@@ -4,7 +4,7 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 
 const EventDetailModal = ({ event, onClose, darkMode, onEventUpdate }) => {
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState(null);
   const [applicationSuccess, setApplicationSuccess] = useState(false);
@@ -23,13 +23,20 @@ const EventDetailModal = ({ event, onClose, darkMode, onEventUpdate }) => {
   
   // Check if user has already applied
   const hasApplied = event.applicants?.some(
-    applicant => applicant.user === user?._id || (applicant.user?._id && applicant.user._id === user?._id)
+    applicant => 
+      (applicant.user && currentUser && applicant.user === currentUser.id) || 
+      (applicant.user && currentUser && applicant.user._id === currentUser.id) ||
+      (applicant.userData && currentUser && applicant.userData.email === currentUser.email)
   );
   
   // Status of application if user has applied
   const userApplication = event.applicants?.find(
-    applicant => applicant.user === user?._id || (applicant.user?._id && applicant.user._id === user?._id)
+    applicant => 
+      (applicant.user && currentUser && applicant.user === currentUser.id) || 
+      (applicant.user && currentUser && applicant.user._id === currentUser.id) ||
+      (applicant.userData && currentUser && applicant.userData.email === currentUser.email)
   );
+  
   const applicationStatus = userApplication?.status;
   
   const handleApply = async () => {
@@ -37,45 +44,43 @@ const EventDetailModal = ({ event, onClose, darkMode, onEventUpdate }) => {
       setApplying(true);
       setError(null);
       
-      // Use a fixed user ID if not authenticated
-      const userId = user?._id || '661037f9f5aee68b6cb9ed9f';
+      // Get the user ID if authenticated
+      const userId = currentUser ? currentUser.id : null;
       
-      // Include sample user data if real user data is not available
-      const userData = user || {
-        firstName: 'Guest',
-        lastName: 'User',
-        email: 'guest@example.com'
+      // Prepare user data to send with application
+      const userData = {
+        firstName: currentUser ? currentUser.firstName : 'Guest',
+        lastName: currentUser ? currentUser.lastName : 'User',
+        email: currentUser ? currentUser.email : 'guest@example.com'
       };
       
-      console.log('Submitting application for event:', event.title);
-      console.log('Using user ID:', userId);
-      console.log('Including user data:', userData);
-      
+      // Send application request
       const response = await axios.post(
         `http://localhost:5500/api/events/${event._id}/apply`,
         { 
           userId,
-          userData // Send user data along with the request
+          userData
         }
       );
       
-      console.log('Application response:', response.data);
-      setApplicationSuccess(true);
-      
-      // Get the updated event with the new application
-      const updatedEventResponse = await axios.get(`http://localhost:5500/api/events/${event._id}`);
-      
-      // Update the event with the fresh data including the populated applicants
-      Object.assign(event, updatedEventResponse.data.data);
-      
-      console.log('Application submitted successfully');
-      
-      // Call the onEventUpdate prop if it exists to refresh the parent component
-      if (typeof onEventUpdate === 'function') {
-        console.log('Triggering event update in parent component');
-        setTimeout(() => onEventUpdate(), 500);
+      if (response.data.success) {
+        setApplicationSuccess(true);
+        
+        // Get the updated event information since we have a new application
+        const updatedEventResponse = await axios.get(`http://localhost:5500/api/events/${event._id}`);
+        
+        // Update the event object with the fresh data
+        if (updatedEventResponse.data.success) {
+          Object.assign(event, updatedEventResponse.data.data);
+        }
+        
+        // Update the parent component if callback exists
+        if (typeof onEventUpdate === 'function') {
+          setTimeout(() => onEventUpdate(), 500);
+        }
+      } else {
+        setError('Something went wrong with your application. Please try again.');
       }
-      
     } catch (err) {
       console.error('Error applying for event:', err);
       setError(
@@ -245,4 +250,4 @@ const EventDetailModal = ({ event, onClose, darkMode, onEventUpdate }) => {
   );
 };
 
-export default EventDetailModal; 
+export default EventDetailModal;

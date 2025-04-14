@@ -15,28 +15,9 @@ import EventManagement from './pages/admin/EventManagement';
 // import EventOverview from '../pages/EventOverview';
 // import Home from '../src/pages/Home';
 import Events from '../src/pages/Events';
+import UnplugEventOverview from './pages/Eventoverview';
+import UnplugEventTimeline from './pages/EventTime';
 
-// Create placeholder pages until they're properly implemented
-const EventOverview = () => (
-  <div className="container mx-auto px-4 py-16">
-    <h1 className="text-4xl font-bold text-ocean-700 dark:text-ocean-300 mb-6 font-serif">Event Overview</h1>
-    <p className="text-lg text-gray-700 dark:text-gray-300">Theme, vibe, location, and purpose of our upcoming event.</p>
-  </div>
-);
-
-const Timeline = () => (
-  <div className="container mx-auto px-4 py-16">
-    <h1 className="text-4xl font-bold text-ocean-700 dark:text-ocean-300 mb-6 font-serif">Timeline & Schedule</h1>
-    <p className="text-lg text-gray-700 dark:text-gray-300">Details about the event schedule and timeline.</p>
-  </div>
-);
-
-const PastEvents = () => (
-  <div className="container mx-auto px-4 py-16">
-    <h1 className="text-4xl font-bold text-ocean-700 dark:text-ocean-300 mb-6 font-serif">Past Events</h1>
-    <p className="text-lg text-gray-700 dark:text-gray-300">Stats, images, highlights, and testimonials from our past events.</p>
-  </div>
-);
 
 const Mentors = () => (
   <div className="container mx-auto px-4 py-16">
@@ -90,8 +71,8 @@ export default function App() {
                     <Route path="/signup" element={<SignUp />} />
                     <Route path="/login" element={<Login />} />
                     <Route path="/events" element={<Events />} />
-                    <Route path="/eventsoverview" element={<EventOverview />} />
-                    <Route path="/timeline" element={<Timeline />} />
+                    <Route path="/eventsoverview" element={<UnplugEventOverview />} />
+                    <Route path="/timeline" element={<UnplugEventTimeline/>} />
                     <Route path="/events/:eventId" element={<EventDetail />} />
                     <Route path="/admin/events" element={<EventManagement />} />
                     <Route path="/admin/events/new" element={<EventForm />} />

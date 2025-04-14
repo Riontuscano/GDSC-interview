@@ -30,9 +30,11 @@ const EventDetail = () => {
       setEvent(response.data.data);
       
       // Check if user has already applied
-      if (isAuthenticated && user && response.data.data.applicants) {
+      if (user && response.data.data.applicants) {
         const userApplication = response.data.data.applicants.find(
-          app => app.user._id === user._id
+          app => (app.user && app.user._id === user._id) || 
+                 (typeof app.user === 'string' && app.user === user._id) ||
+                 (app.userData && app.userData.email === user.email)
         );
         
         if (userApplication) {
@@ -54,12 +56,29 @@ const EventDetail = () => {
       setApplying(true);
       setError(null);
       
-      // Use a fixed user ID if not authenticated
+      // Only use default ID if user is truly not authenticated
       const userId = user?._id || '661037f9f5aee68b6cb9ed9f';
       
-      await axios.post(
+      // Use authenticated user data when available
+      const userData = user ? {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        _id: user._id
+      } : {
+        firstName: 'Guest',
+        lastName: 'User',
+        email: 'guest@example.com'
+      };
+
+      // Send the application with user data
+      const response = await axios.post(
         `http://localhost:5500/api/events/${eventId}/apply`,
-        { userId }
+        { 
+          userId,
+          userData,
+          email: userData.email
+        }
       );
       
       setApplicationSuccess(true);
@@ -254,34 +273,20 @@ const EventDetail = () => {
                   <div className="flex flex-col items-center">
                     <button
                       onClick={handleApply}
-                      disabled={applying || !canApply}
-                      className={`px-8 py-3 rounded-md text-white font-medium ${
+                      disabled={applying}
+                      className={`px-6 py-2 rounded-md ${
                         applying
                           ? 'opacity-70 cursor-not-allowed'
-                          : !isAuthenticated
-                          ? darkMode
-                            ? 'bg-teal-600 hover:bg-teal-700'
-                            : 'bg-ocean-600 hover:bg-ocean-700'
-                          : !canApply
-                          ? darkMode 
-                            ? 'bg-slate-600 cursor-not-allowed' 
-                            : 'bg-gray-400 cursor-not-allowed'
                           : darkMode
-                          ? 'bg-teal-600 hover:bg-teal-700'
-                          : 'bg-ocean-600 hover:bg-ocean-700'
-                      }`}
+                          ? 'bg-teal-600 hover:bg-teal-700 text-white'
+                          : 'bg-ocean-600 hover:bg-ocean-700 text-white'
+                      } transition-colors duration-200`}
                     >
-                      {applying 
-                        ? 'Submitting Application...' 
-                        : !isAuthenticated 
-                        ? 'Login to Apply' 
-                        : 'Apply for this Event'}
+                      {applying ? 'Submitting Application...' : 'Apply for Event'}
                     </button>
-                    {!isAuthenticated && (
-                      <p className={`mt-3 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        You need to login to apply for this event.
-                      </p>
-                    )}
+                    <p className={`mt-2 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Your application will be reviewed by our team.
+                    </p>
                   </div>
                 )}
               </div>

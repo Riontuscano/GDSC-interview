@@ -44,9 +44,32 @@ const EventSchema = new mongoose.Schema(
     // Reference to users who applied to this event
     applicants: [
       {
+        _id: {
+          type: mongoose.Schema.Types.ObjectId,
+          default: () => new mongoose.Types.ObjectId(),
+          required: true
+        },
         user: {
           type: mongoose.Schema.Types.ObjectId,
           ref: 'User',
+          required: false // Not required because we allow non-logged-in users
+        },
+        userData: {
+          firstName: {
+            type: String,
+            required: true,
+            default: 'Guest'
+          },
+          lastName: {
+            type: String,
+            required: true,
+            default: 'User'
+          },
+          email: {
+            type: String,
+            required: true,
+            default: 'guest@example.com'
+          }
         },
         status: {
           type: String,

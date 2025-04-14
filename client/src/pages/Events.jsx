@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import EventCard from '../components/EventCard';
 import EventDetailModal from '../components/EventDetailModal';
 
 const Events = () => {
   const { darkMode } = useTheme();
+  const { currentUser } = useAuth();
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [pastEvents, setPastEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -114,18 +116,7 @@ const Events = () => {
         </div>
         
         {/* Debug Information (collapsible) */}
-        <div className="mb-4">
-          <details className={`rounded-lg p-2 ${darkMode ? 'bg-slate-800' : 'bg-gray-100'}`}>
-            <summary className="cursor-pointer font-semibold">Debug Info</summary>
-            <div className="mt-2 p-2 text-xs">
-              <p>Active Tab: {activeTab}</p>
-              <p>Upcoming Events: {upcomingEvents.length}</p>
-              <p>Past Events: {pastEvents.length}</p>
-              <p>Loading: {loading ? 'Yes' : 'No'}</p>
-              <p>Refreshing: {refreshing ? 'Yes' : 'No'}</p>
-            </div>
-          </details>
-        </div>
+       
         
         <div className="mb-6">
           <div className={`flex justify-center border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>

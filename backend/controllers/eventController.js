@@ -157,113 +157,92 @@ const deleteEvent = async (req, res, next) => {
 // @access  Public
 const applyForEvent = async (req, res, next) => {
   try {
-    console.log('Apply for event request received:', {
-      eventId: req.params.id,
-      userId: req.body.userId
-    });
+    console.log('Apply request received:', req.body);
     
-    // First, check if the userId exists in the User collection
-    // If not, we'll still allow the application but use a placeholder user object
-    let userId = req.body.userId || '661037f9f5aee68b6cb9ed9f'; // Use a default user ID if not provided
-    
-    // Get userData if provided in the request
-    const userData = req.body.userData || {
-      firstName: 'Guest',
-      lastName: 'User',
-      email: 'guest@example.com'
-    };
-    
-    console.log('Processing application with user ID:', userId);
-    console.log('User data received:', userData);
-    
+    // Get the event
     const event = await Event.findById(req.params.id);
     
     if (!event) {
-      console.log('Event not found with ID:', req.params.id);
       return res.status(404).json({
         success: false,
-        message: 'Event not found',
+        message: 'Event not found'
       });
     }
     
     // Check if event is past
     if (event.isPast) {
-      console.log('Cannot apply for past event');
       return res.status(400).json({
         success: false,
-        message: 'Cannot apply for past events',
+        message: 'Cannot apply for past events'
       });
     }
     
     // Check if registration deadline has passed
     if (new Date() > new Date(event.registrationDeadline)) {
-      console.log('Registration deadline has passed');
       return res.status(400).json({
         success: false,
-        message: 'Registration deadline has passed',
+        message: 'Registration deadline has passed'
       });
     }
     
-    console.log('Using user ID for application:', userId);
-    
-    // Check if user already applied - handle both string IDs and object IDs
-    const alreadyApplied = event.applicants.find(
-      applicant => {
-        if (!applicant.user) return false;
-        if (typeof applicant.user === 'string' || applicant.user instanceof String) {
-          return applicant.user === userId;
-        }
-        return applicant.user.toString() === userId.toString();
-      }
-    );
-    
-    if (alreadyApplied) {
-      console.log('User already applied to this event');
-      return res.status(400).json({
-        success: false,
-        message: 'This user has already applied for this event',
-      });
-    }
-    
-    // Add user to applicants list
-    const newApplication = {
-      _id: new mongoose.Types.ObjectId(), // Generate a new MongoDB ObjectId for the application
-      user: userId,
-      userData: {  // Store user data directly in the application object
-        firstName: userData.firstName || 'Guest',
-        lastName: userData.lastName || 'User',
-        email: userData.email || 'guest@example.com'
-      },
-      status: 'pending',
-      appliedAt: Date.now(),
+    // Get user data from request
+    const userData = {
+      firstName: req.body.userData?.firstName || 'Guest',
+      lastName: req.body.userData?.lastName || 'User',
+      email: req.body.userData?.email || 'guest@example.com'
     };
     
-    event.applicants.push(newApplication);
-    console.log('Added new application:', newApplication);
+    // Create a new application
+    const newApplication = {
+      _id: new mongoose.Types.ObjectId(),
+      userData: userData,
+      user: req.body.userId || null,
+      status: 'pending',
+      appliedAt: new Date()
+    };
     
-    const savedEvent = await event.save();
-    console.log('Event saved with new application. Total applicants:', savedEvent.applicants.length);
+    console.log('Creating application with data:', newApplication);
     
-    try {
-      // Fetch the event again with populated fields to return
-      const populatedEvent = await Event.findById(req.params.id)
-        .populate('createdBy', 'firstName lastName')
-        .populate('applicants.user', 'firstName lastName email');
+    // Check if user has already applied
+    const hasApplied = event.applicants.some(app => {
+      // Check by user ID if provided
+      if (req.body.userId && app.user) {
+        return app.user.toString() === req.body.userId.toString();
+      }
       
-      res.status(200).json({
-        success: true,
-        message: 'Application submitted successfully',
-        data: populatedEvent,
-      });
-    } catch (populateError) {
-      // If population fails, still return success with the unpopulated event
-      console.error('Error populating event data:', populateError);
-      res.status(200).json({
-        success: true,
-        message: 'Application submitted successfully, but user data could not be loaded',
-        data: savedEvent,
+      // Or check by email
+      if (app.userData && app.userData.email === userData.email) {
+        return true;
+      }
+      
+      return false;
+    });
+    
+    if (hasApplied) {
+      return res.status(400).json({
+        success: false,
+        message: 'You have already applied for this event'
       });
     }
+    
+    // Add application to event
+    event.applicants.push(newApplication);
+    
+    // Save event
+    await event.save();
+    
+    console.log('Application added successfully');
+    
+    // Return success
+    res.status(200).json({
+      success: true,
+      message: 'Application submitted successfully',
+      data: {
+        applicationId: newApplication._id,
+        status: 'pending'
+      }
+    });
+    
   } catch (error) {
     console.error('Error in applyForEvent:', error);
     next(error);
@@ -275,78 +254,62 @@ const applyForEvent = async (req, res, next) => {
 // @access  Public
 const updateApplicationStatus = async (req, res, next) => {
   try {
-    const { status } = req.body;
-    console.log(`Updating application status for event ${req.params.id}, application ${req.params.applicationId} to ${status}`);
+    console.log('Updating application status:', {
+      eventId: req.params.id,
+      applicationId: req.params.applicationId,
+      status: req.body.status
+    });
     
-    if (!status || !['approved', 'rejected', 'pending'].includes(status)) {
+    // Validate requested status
+    const allowedStatuses = ['pending', 'approved', 'rejected'];
+    if (!allowedStatuses.includes(req.body.status)) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide a valid status (approved, rejected, or pending)',
+        message: 'Invalid status value. Must be pending, approved, or rejected'
       });
     }
     
+    // Find the event
     const event = await Event.findById(req.params.id);
     
     if (!event) {
       return res.status(404).json({
         success: false,
-        message: 'Event not found',
+        message: 'Event not found'
       });
     }
     
-    // Find the application by its _id
-    const applicationIndex = event.applicants.findIndex(app => {
-      if (!app._id) return false;
-      
-      // Handle cases where _id is a string or ObjectId
-      if (typeof app._id === 'string' || app._id instanceof String) {
-        return app._id === req.params.applicationId;
-      } 
-      return app._id.toString() === req.params.applicationId;
-    });
+    // Find the application within the event
+    const applicationIndex = event.applicants.findIndex(
+      app => app._id.toString() === req.params.applicationId
+    );
     
     if (applicationIndex === -1) {
-      console.log('Application not found with ID:', req.params.applicationId);
-      console.log('Available applications:', event.applicants.map(app => ({
-        applicationId: app._id && (typeof app._id === 'string' ? app._id : app._id.toString()),
-        userId: app.user && (typeof app.user === 'string' ? app.user : app.user.toString()),
-        status: app.status
-      })));
-      
       return res.status(404).json({
         success: false,
-        message: 'Application not found',
+        message: 'Application not found for this event'
       });
     }
     
-    console.log(`Found application at index ${applicationIndex}, changing status from ${event.applicants[applicationIndex].status} to ${status}`);
+    // Update the application status
+    event.applicants[applicationIndex].status = req.body.status;
     
-    // Update the status
-    event.applicants[applicationIndex].status = status;
-    const savedEvent = await event.save();
+    // Save the event with updated application
+    await event.save();
     
     console.log('Application status updated successfully');
     
-    try {
-      // Return populated event data
-      const populatedEvent = await Event.findById(req.params.id)
-        .populate('createdBy', 'firstName lastName')
-        .populate('applicants.user', 'firstName lastName email');
-      
-      res.status(200).json({
-        success: true,
-        message: `Application ${status} successfully`,
-        data: populatedEvent,
-      });
-    } catch (populateError) {
-      // If population fails, still return success with the unpopulated event
-      console.error('Error populating event data:', populateError);
-      res.status(200).json({
-        success: true,
-        message: `Application ${status} successfully, but user data could not be loaded`,
-        data: savedEvent,
-      });
-    }
+    // Return success with updated application data
+    res.status(200).json({
+      success: true,
+      message: 'Application status updated',
+      data: {
+        eventId: event._id,
+        applicationId: event.applicants[applicationIndex]._id,
+        status: event.applicants[applicationIndex].status
+      }
+    });
+    
   } catch (error) {
     console.error('Error in updateApplicationStatus:', error);
     next(error);

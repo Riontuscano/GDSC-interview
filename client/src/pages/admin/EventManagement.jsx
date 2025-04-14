@@ -125,17 +125,7 @@ const EventManagement = () => {
     <div className={`min-h-screen ${darkMode ? 'bg-slate-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
       <div className="container mx-auto px-4 py-8">
         {/* Debug Information */}
-        <div className={`p-4 rounded-md mb-6 ${darkMode ? 'bg-slate-800' : 'bg-gray-100'}`}>
-          <h3 className="font-bold mb-2">Debug Information</h3>
-          <p>Active Tab: {activeTab}</p>
-          <p>Events Array Length: {events.length}</p>
-          <div className="mt-2">
-            <h4 className="font-semibold">Events List:</h4>
-            <pre className="text-xs mt-2 overflow-auto max-h-40">
-              {JSON.stringify(events.map(e => ({id: e._id, title: e.title})), null, 2)}
-            </pre>
-          </div>
-        </div>
+        
         
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">Event Management</h1>
@@ -151,18 +141,7 @@ const EventManagement = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
             </button>
-            <button
-              onClick={completeRefresh}
-              className={`px-2 py-2 rounded ${
-                darkMode ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'
-              } text-center flex items-center`}
-              title="Force reload all events from server"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              <span className="text-xs">Force Refresh</span>
-            </button>
+            
             <Link
               to="/admin/events/new"
               className={`px-4 py-2 rounded ${
